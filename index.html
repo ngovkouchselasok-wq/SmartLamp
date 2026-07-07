@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Lamp Dashboard</title>
+    
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    
+    <style>
+        /* Clean, modern, bold typography */
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        
+        .dashboard-container {
+            background: #ffffff;
+            padding: 40px 30px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            text-align: center;
+            width: 320px;
+            transition: all 0.3s ease;
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 28px;
+            color: #1a1a1a;
+            letter-spacing: -0.5px;
+        }
+
+        #status {
+            margin-bottom: 35px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .connected { color: #10b981; } /* Modern Green */
+        .disconnected { color: #ef4444; } /* Modern Red */
+        
+        /* Premium Power Button */
+        .power-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background-color: #f3f4f6;
+            color: #9ca3af;
+            font-size: 32px;
+            cursor: pointer;
+            box-shadow: inset 0 4px 6px rgba(255,255,255,0.5), 
+                        0 4px 10px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 35px auto;
+        }
+
+        .power-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* Power Button ON State */
+        .power-btn.on {
+            background-color: #10b981;
+            color: white;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        /* Slider Section */
+        .slider-section {
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+            pointer-events: none; /* Disabled by default until power is ON */
+        }
+
+        .slider-section.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .slider-label-title {
+            display: block;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #4b5563;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin-bottom: 10px;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #e5e7eb;
+            border-radius: 4px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -8px;
+            border: 2px solid #10b981;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6b7280;
+            padding: 0 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <h1>Smart Lamp</h1>
+    <div id="status" class="disconnected">DEVICE: DISCONNECTED</div>
+    
+    <button id="powerBtn" class="power-btn">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+            <line x1="12" y1="2" x2="12" y2="12"></line>
+        </svg>
+    </button>
+    
+    <div id="sliderSection" class="slider-section">
+        <span class="slider-label-title">Brightness Level</span>
+        <input type="range" id="brightness" min="1" max="3" value="3" step="1">
+        
+        <div class="slider-labels">
+            <span>LOW</span>
+            <span>MED</span>
+            <span>HIGH</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------------- Configuration ----------------
+    const brokerUrl = 'wss://13ec2f3ddf604f689f76365f68cbdfc0.s1.eu.hivemq.cloud:8884/mqtt';
+    
+    const options = {
+        clientId: 'WebDashboard_' + Math.random().toString(16).substring(2, 8),
+        username: 'Sela', 
+        password: '12345678', 
+    };
+
+    // ---------------- Logic State ----------------
+    let isPowerOn = false;
+    let savedBrightness = '3'; // Default to HIGH when turning on for the first time
+
+    // ---------------- Connections & DOM Elements ----------------
+    const client = mqtt.connect(brokerUrl, options);
+    
+    const statusDiv = document.getElementById('status');
+    const powerBtn = document.getElementById('powerBtn');
+    const sliderSection = document.getElementById('sliderSection');
+    const brightnessSlider = document.getElementById('brightness');
+
+    // UI Update Function
+    function updateUI(modeString) {
+        if (modeString === '0') {
+            isPowerOn = false;
+            powerBtn.classList.remove('on');
+            sliderSection.classList.remove('active');
+        } else {
+            isPowerOn = true;
+            savedBrightness = modeString; // Remember the current brightness
+            powerBtn.classList.add('on');
+            sliderSection.classList.add('active');
+            brightnessSlider.value = modeString;
+        }
+    }
+
+    client.on('connect', () => {
+        statusDiv.textContent = 'DEVICE: CONNECTED';
+        statusDiv.className = 'connected';
+        client.subscribe('home/lamp/status');
+    });
+
+    client.on('error', (err) => {
+        statusDiv.textContent = 'DEVICE: CONNECTION FAILED';
+        statusDiv.className = 'disconnected';
+        client.end();
+    });
+
+    // Listen for physical button presses to sync the UI
+    client.on('message', (topic, message) => {
+        if (topic === 'home/lamp/status') {
+            updateUI(message.toString());
+        }
+    });
+
+    // Power Button Click Event
+    powerBtn.addEventListener('click', () => {
+        if (isPowerOn) {
+            // If ON, turn it OFF (send '0')
+            client.publish('home/lamp/command', '0');
+        } else {
+            // If OFF, turn it ON using the last known brightness
+            client.publish('home/lamp/command', savedBrightness);
+        }
+    });
+
+    // Slider Change Event
+    brightnessSlider.addEventListener('change', (event) => {
+        const selectedMode = event.target.value;
+        savedBrightness = selectedMode;
+        client.publish('home/lamp/command', selectedMode.toString());
+    });
+</script>
+
+</body>
+</html>
