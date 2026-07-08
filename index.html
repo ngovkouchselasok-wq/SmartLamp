@@ -8,48 +8,147 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     
     <style>
-        /* Clean, modern, bold typography */
+        /* THE REAL FIX */
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-weight: bold;
             background-color: #f0f2f5;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
             color: #333;
+            margin: 0;
+            padding: 20px; 
+            box-sizing: border-box;
+            
+            /* Magic flex setup */
+            display: flex; 
+            min-height: 100vh; 
         }
         
         .dashboard-container {
             background: #ffffff;
-            padding: 40px 30px;
+            padding: 30px;
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            text-align: center;
-            width: 320px;
+            width: 100%;
+            max-width: 450px;
+            box-sizing: border-box;
             transition: all 0.3s ease;
+            
+            /* This single line forces perfect centering on desktop, but safe scrolling on mobile */
+            margin: auto; 
         }
 
         h1 {
             margin: 0 0 5px 0;
-            font-size: 28px;
+            font-size: 24px;
             color: #1a1a1a;
+            text-align: center;
             letter-spacing: -0.5px;
+            font-weight: bold;
         }
 
-        #status {
-            margin-bottom: 35px;
-            font-size: 12px;
+        .status-container {
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .connected { color: #10b981; }
+        .disconnected { color: #ef4444; }
+        
+        .settings-panel {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .settings-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: #6b7280;
+            margin-bottom: 15px;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
-        .connected { color: #10b981; } /* Modern Green */
-        .disconnected { color: #ef4444; } /* Modern Red */
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .full-width {
+            grid-column: span 2;
+        }
+
+        label {
+            font-size: 10px;
+            font-weight: bold;
+            color: #4b5563;
+            text-transform: uppercase;
+        }
+
+        input[type="text"], 
+        input[type="number"], 
+        input[type="password"] {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: monospace;
+            background: #fff;
+            transition: border-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus, 
+        input[type="number"]:focus, 
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .connect-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+        }
+
+        .connect-btn:hover { background-color: #2563eb; }
+        .connect-btn.is-connected { background-color: #ef4444; }
+        .connect-btn.is-connected:hover { background-color: #dc2626; }
+
+        .controls-section {
+            opacity: 0.4;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            text-align: center;
+            padding-top: 20px;
+            border-top: 2px dashed #e5e7eb;
+        }
+
+        .controls-section.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
         
-        /* Premium Power Button */
         .power-btn {
             width: 80px;
             height: 80px;
@@ -57,37 +156,32 @@
             border: none;
             background-color: #f3f4f6;
             color: #9ca3af;
-            font-size: 32px;
             cursor: pointer;
-            box-shadow: inset 0 4px 6px rgba(255,255,255,0.5), 
-                        0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: inset 0 4px 6px rgba(255,255,255,0.5), 0 4px 10px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 35px auto;
+            margin: 10px auto 30px auto;
         }
 
         .power-btn:active {
             transform: scale(0.95);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        /* Power Button ON State */
         .power-btn.on {
             background-color: #10b981;
             color: white;
             box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
         }
         
-        /* Slider Section */
-        .slider-section {
+        .slider-wrapper {
             opacity: 0.5;
+            pointer-events: none;
             transition: opacity 0.3s ease;
-            pointer-events: none; /* Disabled by default until power is ON */
         }
 
-        .slider-section.active {
+        .slider-wrapper.active {
             opacity: 1;
             pointer-events: auto;
         }
@@ -95,21 +189,21 @@
         .slider-label-title {
             display: block;
             margin-bottom: 15px;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: bold;
             color: #4b5563;
         }
 
-        /* Custom Range Slider */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
             background: transparent;
             margin-bottom: 10px;
+            border: none;
+            padding: 0;
         }
 
-        input[type=range]:focus {
-            outline: none;
-        }
+        input[type=range]:focus { outline: none; }
 
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
@@ -134,7 +228,8 @@
         .slider-labels {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            font-size: 11px;
+            font-weight: bold;
             color: #6b7280;
             padding: 0 5px;
         }
@@ -144,99 +239,181 @@
 
 <div class="dashboard-container">
     <h1>Smart Lamp</h1>
-    <div id="status" class="disconnected">DEVICE: DISCONNECTED</div>
+    <div id="status" class="status-container disconnected">DISCONNECTED</div>
     
-    <button id="powerBtn" class="power-btn">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-            <line x1="12" y1="2" x2="12" y2="12"></line>
-        </svg>
-    </button>
-    
-    <div id="sliderSection" class="slider-section">
-        <span class="slider-label-title">Brightness Level</span>
-        <input type="range" id="brightness" min="1" max="3" value="3" step="1">
+    <div class="settings-panel">
+        <div class="settings-title">Connection Requirements</div>
+        <div class="input-grid">
+            <div class="input-group full-width">
+                <label>Broker Host</label>
+                <input type="text" id="host" value="13ec2f3ddf604f689f76365f68cbdfc0.s1.eu.hivemq.cloud">
+            </div>
+            <div class="input-group">
+                <label>Port (WebSocket)</label>
+                <input type="number" id="port" value="8884">
+            </div>
+            <div class="input-group">
+                <label>Path</label>
+                <input type="text" id="path" value="/mqtt">
+            </div>
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="username" value="Sela">
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="password" value="12345678">
+            </div>
+            <div class="input-group full-width">
+                <label>Client ID</label>
+                <input type="text" id="clientId" value="">
+            </div>
+            <div class="input-group full-width">
+                <label>Topic (Publish / Subscribe Base)</label>
+                <input type="text" id="baseTopic" value="home/lamp">
+            </div>
+        </div>
+        <button id="connectBtn" class="connect-btn" onclick="toggleConnection()">Connect</button>
+    </div>
+
+    <div id="controlsSection" class="controls-section">
+        <button id="powerBtn" class="power-btn">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                <line x1="12" y1="2" x2="12" y2="12"></line>
+            </svg>
+        </button>
         
-        <div class="slider-labels">
-            <span>LOW</span>
-            <span>MED</span>
-            <span>HIGH</span>
+        <div id="sliderWrapper" class="slider-wrapper">
+            <span class="slider-label-title">Brightness Level</span>
+            <input type="range" id="brightness" min="1" max="3" value="3" step="1">
+            <div class="slider-labels">
+                <span>LOW</span>
+                <span>MED</span>
+                <span>HIGH</span>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // ---------------- Configuration ----------------
-    const brokerUrl = 'wss://13ec2f3ddf604f689f76365f68cbdfc0.s1.eu.hivemq.cloud:8884/mqtt';
-    
-    const options = {
-        clientId: 'WebDashboard_' + Math.random().toString(16).substring(2, 8),
-        username: 'Sela', 
-        password: '12345678', 
-    };
+    document.addEventListener("DOMContentLoaded", function() {
+        const randomHex = Math.floor(Math.random()*16777215).toString(16);
+        document.getElementById('clientId').value = 'WebDash-' + randomHex;
+    });
 
-    // ---------------- Logic State ----------------
+    let client = null;
+    let isConnected = false;
     let isPowerOn = false;
-    let savedBrightness = '3'; // Default to HIGH when turning on for the first time
+    let savedBrightness = '3';
 
-    // ---------------- Connections & DOM Elements ----------------
-    const client = mqtt.connect(brokerUrl, options);
-    
     const statusDiv = document.getElementById('status');
+    const connectBtn = document.getElementById('connectBtn');
+    const controlsSection = document.getElementById('controlsSection');
     const powerBtn = document.getElementById('powerBtn');
-    const sliderSection = document.getElementById('sliderSection');
+    const sliderWrapper = document.getElementById('sliderWrapper');
     const brightnessSlider = document.getElementById('brightness');
 
-    // UI Update Function
-    function updateUI(modeString) {
+    function updateLampUI(modeString) {
         if (modeString === '0') {
             isPowerOn = false;
             powerBtn.classList.remove('on');
-            sliderSection.classList.remove('active');
+            sliderWrapper.classList.remove('active');
         } else {
             isPowerOn = true;
-            savedBrightness = modeString; // Remember the current brightness
+            savedBrightness = modeString;
             powerBtn.classList.add('on');
-            sliderSection.classList.add('active');
+            sliderWrapper.classList.add('active');
             brightnessSlider.value = modeString;
         }
     }
 
-    client.on('connect', () => {
-        statusDiv.textContent = 'DEVICE: CONNECTED';
-        statusDiv.className = 'connected';
-        client.subscribe('home/lamp/status');
-    });
+    function toggleConnection() {
+        if (isConnected) {
+            client.end();
+            return;
+        }
 
-    client.on('error', (err) => {
-        statusDiv.textContent = 'DEVICE: CONNECTION FAILED';
+        const host = document.getElementById('host').value;
+        const port = document.getElementById('port').value;
+        const path = document.getElementById('path').value;
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const clientId = document.getElementById('clientId').value;
+        const baseTopic = document.getElementById('baseTopic').value;
+        
+        const brokerUrl = `wss://${host}:${port}${path}`;
+        const options = {
+            clientId: clientId,
+            username: username,
+            password: password,
+            keepalive: 60,
+            clean: true,
+            reconnectPeriod: 1000,
+        };
+
+        statusDiv.textContent = 'CONNECTING...';
         statusDiv.className = 'disconnected';
-        client.end();
-    });
 
-    // Listen for physical button presses to sync the UI
-    client.on('message', (topic, message) => {
-        if (topic === 'home/lamp/status') {
-            updateUI(message.toString());
-        }
-    });
+        client = mqtt.connect(brokerUrl, options);
 
-    // Power Button Click Event
+        client.on('connect', () => {
+            isConnected = true;
+            statusDiv.textContent = 'CONNECTED';
+            statusDiv.className = 'connected';
+            
+            connectBtn.textContent = 'Disconnect';
+            connectBtn.classList.add('is-connected');
+            
+            controlsSection.classList.add('active'); 
+
+            client.subscribe(`${baseTopic}/status`);
+        });
+
+        client.on('message', (topic, message) => {
+            const currentTopic = document.getElementById('baseTopic').value;
+            if (topic === `${currentTopic}/status`) {
+                updateLampUI(message.toString());
+            }
+        });
+
+        client.on('close', () => {
+            isConnected = false;
+            statusDiv.textContent = 'DISCONNECTED';
+            statusDiv.className = 'disconnected';
+            
+            connectBtn.textContent = 'Connect';
+            connectBtn.classList.remove('is-connected');
+            
+            controlsSection.classList.remove('active'); 
+            updateLampUI('0'); 
+        });
+
+        client.on('error', (err) => {
+            statusDiv.textContent = 'CONNECTION FAILED';
+            statusDiv.className = 'disconnected';
+            client.end();
+        });
+    }
+
     powerBtn.addEventListener('click', () => {
+        if (!isConnected) return;
+        const baseTopic = document.getElementById('baseTopic').value;
+        
         if (isPowerOn) {
-            // If ON, turn it OFF (send '0')
-            client.publish('home/lamp/command', '0');
+            client.publish(`${baseTopic}/command`, '0');
         } else {
-            // If OFF, turn it ON using the last known brightness
-            client.publish('home/lamp/command', savedBrightness);
+            client.publish(`${baseTopic}/command`, savedBrightness);
         }
     });
 
-    // Slider Change Event
     brightnessSlider.addEventListener('change', (event) => {
+        if (!isConnected) return;
+        const baseTopic = document.getElementById('baseTopic').value;
         const selectedMode = event.target.value;
+        
         savedBrightness = selectedMode;
-        client.publish('home/lamp/command', selectedMode.toString());
+        client.publish(`${baseTopic}/command`, selectedMode.toString());
     });
 </script>
 
